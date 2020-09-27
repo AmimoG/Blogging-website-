@@ -16,7 +16,7 @@ class DevConfig(Config):
     """
     This is the class which will contain the development configurations
     """
-    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://marvin:marvin24@localhost/blog'
+    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://moringa:pluto1@localhost/blog'
     DEBUG = True
 
 class ProdConfig(Config):
@@ -29,7 +29,7 @@ class TestConfig(Config):
     """
     This is the class which will contain the test configurations
     """
-    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://marvin:marvin24@localhost/tests'
+    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://moringa:pluto1@localhost/blog'
 
 config_options = {
     "development": DevConfig,
