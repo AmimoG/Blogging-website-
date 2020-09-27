@@ -1,149 +1,116 @@
-from flask import render_template,request,redirect,url_for,abort
 from . import main
-from ..models import User,Pitch,Comment
+from flask_login import current_user, login_required
+from .forms import AddPostForm,SubscribeForm,AddComment,EditBio
+from ..models import Post,User,Comment,Subscriber
+from flask import redirect,url_for,render_template,flash,request
 from .. import db,photos
-from .form import UpdateProfile,PitchForm,CommentForm
-from flask_login import login_required,current_user
-import datetime
+from datetime import datetime
+from app.email import create_mail
 
-# Views
-@main.route('/')
+@main.route("/", methods = ["GET","POST"])
 def index():
+    form = SubscribeForm()
+    if form.validate_on_submit():
+        email = form.email.data
+        new_subscriber = Subscriber(email = email)
+        db.session.add(new_subscriber)
+        db.session.commit()
+        flash("Thank You for subscribing!")
+        return redirect(url_for("main.index"))
+    posts = Post.query.order_by(Post.time.desc())
+    title = "Home"
+    return render_template("index.html",posts = posts,form = form,title = title)
 
-    '''
-    View root page function that returns the index page and its data
-    '''
-
-    title = 'Home - Welcome to Perfect Pitch'
-
-    # Getting reviews by category
-    interview_piches = Pitch.get_pitches('interview')
-    product_piches = Pitch.get_pitches('product')
-    promotion_pitches = Pitch.get_pitches('promotion')
-
-
-    return render_template('index.html',title = title, interview = interview_piches, product = product_piches, promotion = promotion_pitches)
-
-@main.route('/user/<uname>')
-def profile(uname):
-    user = User.query.filter_by(username = uname).first()
-    pitches_count = Pitch.count_pitches(uname)
-    user_joined = user.date_joined.strftime('%b %d, %Y')
-
-    if user is None:
-        abort(404)
-
-    return render_template("profile/profile.html", user = user,pitches = pitches_count,date = user_joined)
-
-@main.route('/user/<uname>/update',methods = ['GET','POST'])
+@main.route("/add/post/",methods = ["GET","POST"])
 @login_required
-def update_profile(uname):
-    user = User.query.filter_by(username = uname).first()
-    if user is None:
-        abort(404)
+def add_post():
+    form = AddPostForm()
+    title = "Add Post"
 
-    form = UpdateProfile()
 
     if form.validate_on_submit():
-        user.bio = form.bio.data
+        title = form.title.data
+        content = form.content.data
+        posted = str(datetime.now())
+        print(posted)
+        if "photo" in request.files:
+            pic = photos.save(request.files["photo"])
+            file_path = f"photos/{pic}"
+            image = file_path
+        new_post = Post(title = title, content = content, user = current_user,image = image,time = posted)
+        new_post.save_post()
+        subscribers = Subscriber.query.all()
+        emails = []
+        for subscriber in subscribers:
+            emails.append(subscriber.email)
+        for email in emails:
+            create_mail("Update!","email/update",email, user = current_user)
+        print(emails)
+        return redirect(url_for('main.index'))
 
-        db.session.add(user)
-        db.session.commit()
+    return render_template("add_pitch.html",form = form,title = title)
 
-        return redirect(url_for('.profile',uname=user.username))
-
-    return render_template('profile/update.html',form = form)
-
-@main.route('/user/<uname>/update/pic',methods= ['POST'])
-@login_required
-def update_pic(uname):
-    user = User.query.filter_by(username = uname).first()
-    if 'photo' in request.files:
-        filename = photos.save(request.files['photo'])
-        path = f'photos/{filename}'
-        user.profile_pic_path = path
-        db.session.commit()
-    return redirect(url_for('main.profile',uname=uname))
-
-@main.route('/pitch/new', methods = ['GET','POST'])
-@login_required
-def new_pitch():
-    pitch_form = PitchForm()
-    if pitch_form.validate_on_submit():
-        title = pitch_form.title.data
-        pitch = pitch_form.text.data
-        category = pitch_form.category.data
-
-        # Updated pitch instance
-        new_pitch = Pitch(pitch_title=title,pitch_content=pitch,category=category,user=current_user,likes=0,dislikes=0)
-
-        # Save pitch method
-        new_pitch.save_pitch()
-        return redirect(url_for('.index'))
-
-    title = 'New pitch'
-    return render_template('pitch.html',title = title,form=pitch_form )
-
-@main.route('/pitches/interview_pitches')
-def interview_pitches():
-
-    pitches = Pitch.get_pitches('interview')
-
-    return render_template("interview_pitches.html", pitches = pitches)
-
-@main.route('/pitches/product_pitches')
-def product_pitches():
-
-    pitches = Pitch.get_pitches('product')
-
-    return render_template("product_pitches.html", pitches = pitches)
-
-@main.route('/pitches/promotion_pitches')
-def promotion_pitches():
-
-    pitches = Pitch.get_pitches('promotion')
-
-    return render_template("promotion_pitches.html", pitches = pitches)
-
-@main.route('/pitch/<int:id>', methods = ['GET','POST'])
-def pitch(id):
-    pitch = Pitch.get_pitch(id)
-    posted_date = pitch.posted.strftime('%b %d, %Y')
-
-    if request.args.get("like"):
-        pitch.likes = pitch.likes + 1
-
-        db.session.add(pitch)
-        db.session.commit()
-
-        return redirect("/pitch/{pitch_id}".format(pitch_id=pitch.id))
-
-    elif request.args.get("dislike"):
-        pitch.dislikes = pitch.dislikes + 1
-
-        db.session.add(pitch)
-        db.session.commit()
-
-        return redirect("/pitch/{pitch_id}".format(pitch_id=pitch.id))
-
-    comment_form = CommentForm()
-    if comment_form.validate_on_submit():
-        comment = comment_form.text.data
-
-        new_comment = Comment(comment = comment,user = current_user,pitch_id = pitch)
-
+@main.route("/post/<int:id>",methods = ["GET","POST"])
+def post_page(id):
+    post = Post.query.filter_by(id = id).first()
+    title = post.title
+    form = AddComment()
+    if form.validate_on_submit():
+        name = form.name.data
+        content = form.comment.data
+        new_comment = Comment(name = name, content = content, post = post)
         new_comment.save_comment()
+        return redirect(url_for('main.post_page', id = post.id))
+    comments = Comment.query.filter_by(post_id = post.id)
+    title = post.title
+    return render_template("post.html", title = title, post = post,form = form,comments = comments)
 
+@main.route("/delete/<id>")
+def delete(id):
+    post = Post.query.filter_by(id = id).first()
+    user_id = post.user_id
+    db.session.delete(post)
+    db.session.commit()
 
-    comments = Comment.get_comments(pitch)
+    return redirect(url_for('main.profile', id = user_id))
 
-    return render_template("pitch.html", pitch = pitch, comment_form = comment_form, comments = comments, date = posted_date)
+@main.route("/delete/comment/<id>")
+def delete_comment(id):
+    comment = Comment.query.filter_by(id = id).first()
+    post_id = comment.post.id
+    db.session.delete(comment)
+    db.session.commit()
+    return redirect(url_for("main.post_page", id = post_id))
 
-@main.route('/user/<uname>/pitches')
-def user_pitches(uname):
-    user = User.query.filter_by(username=uname).first()
-    pitches = Pitch.query.filter_by(user_id = user.id).all()
-    pitches_count = Pitch.count_pitches(uname)
-    user_joined = user.date_joined.strftime('%b %d, %Y')
+@main.route("/profile/<id>")
+def profile(id):
+    user = User.query.filter_by(id = id).first()
+    posts = Post.query.filter_by(user_id = user.id).order_by(Post.time.desc())
+    title = user.full_name
+    return render_template("profile.html", user = user,posts = posts, title = title)
 
-    return render_template("profile/pitches.html", user=user,pitches=pitches,pitches_count=pitches_count,date = user_joined)
+@main.route("/<user_id>/profile/edit",methods = ["GET","POST"])
+@login_required
+def update_profile(user_id):
+    title = "Edit Profile"
+    user = User.query.filter_by(id = user_id).first()
+    form = EditBio()
+
+    if form.validate_on_submit():
+        bio = form.bio.data
+        user.bio = bio
+        db.session.commit() 
+        return redirect(url_for('main.profile',id = user.id)) 
+    return render_template("update_profile.html",form = form,title = title)
+
+@main.route("/pic/<user_id>/update", methods = ["POST"])
+@login_required
+def update_pic(user_id):
+    user = User.query.filter_by(id = user_id).first()
+    title = "Edit Profile"
+    if "profile-pic" in request.files:
+        pic = photos.save(request.files["profile-pic"])
+        file_path = f"photos/{pic}"
+        user.image = file_path
+        db.session.commit()
+    return redirect(url_for("main.profile", id = user.id))

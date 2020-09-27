@@ -1,3 +1,5 @@
 from flask import Blueprint
-main = Blueprint('main',__name__)
-from . import views
+
+main = Blueprint("main", __name__)
+
+from . import views,error
