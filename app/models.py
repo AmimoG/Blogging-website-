@@ -27,7 +27,7 @@ class User(UserMixin,db.Model):
         
     @property
     def password(self):
-        raise AttributeError("Gerrarahia")
+        raise AttributeError("pluto1")
 
     @password.setter
     def password(self,password):
