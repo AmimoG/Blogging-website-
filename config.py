@@ -4,7 +4,7 @@ class Config:
     """
     This is the class which will contain the general configurations
     """
-    SECRET_KEY = os.environ.get("SECRET_KEY")
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'pluto1'
     MAIL_SERVER = "smtp.gmail.com"
     MAIL_PORT = 587
     MAIL_USE_TLS = True

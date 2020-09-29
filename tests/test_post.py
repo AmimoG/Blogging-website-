@@ -42,7 +42,7 @@ class TestPost(unittest.TestCase):
         """
         This will test whether the post is correctly linked to the user
         """
-        new_user = User(username = "Marvin")
+        new_user = User(username = "Amimo")
         test_post = Post(title = "J", user = new_user)
-        self.assertTrue(test_post.user.username == "Marvin")
+        self.assertTrue(test_post.user.username == "Amimo")
     
