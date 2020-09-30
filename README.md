@@ -28,11 +28,11 @@ Upon signing up/in, a user will be able to:
 
 
 ### Tech used :computer: 
-1. HTML and CSS
-2. Python
-3. Flask
-1. Postgres
-1. Heroku for deployment
+1. HTML and CSS: for structure and styling.
+2. Python language used in the technology.
+3. Flask the framework used to build this application
+1. Postgres for database.
+1. Heroku for deployment for hosting this application.
 
 ## Set up and Installation
 ### Prerequisites
